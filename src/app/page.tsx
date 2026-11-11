@@ -7,6 +7,7 @@ import {
   SteppedRodProblemInput,
   TorsionShaftProblemInput,
 } from '@/types/mechanics';
+import { FrameProblemInput } from '@/types/frame';
 import { solveBeamProblem } from '@/core/solver/beamSolver';
 import {
   solveSteppedRod,
@@ -23,6 +24,7 @@ import {
   DEFAULT_STEPPED_ROD_PRESET,
   DEFAULT_TORSION_PRESET,
   DEFAULT_COMPOSITE_SECTION_PRESET,
+  DEFAULT_FRAME_PRESET,
 } from '@/data/presets';
 import { InteractiveBeamCanvas } from '@/components/editor/InteractiveBeamCanvas';
 import { QuickTableForm } from '@/components/editor/QuickTableForm';
@@ -34,24 +36,27 @@ import {
 import { SteppedRodCanvas } from '@/components/stepped-rod/SteppedRodCanvas';
 import { SteppedRodTableForm } from '@/components/stepped-rod/SteppedRodTableForm';
 import { SteppedRodDiagramsRenderer } from '@/components/stepped-rod/SteppedRodDiagramsRenderer';
+import { FrameWorkspace } from '@/components/frame/FrameWorkspace';
 import {
   Compass,
   Layers,
   RotateCw,
   Maximize2,
   Sliders,
+  GitBranch,
 } from 'lucide-react';
 
+type ExtendedModuleType = ProblemType | 'frame';
+
 export default function PgsMechanicsPlatformPage() {
-  const [activeModule, setActiveModule] = useState<ProblemType>('beam');
+  const [activeModule, setActiveModule] = useState<ExtendedModuleType>('beam');
 
-  // Состояния инженерных модулей с функциями обновления
   const [beamInput, setBeamInput] = useState<BeamProblemInput>(BEAM_PRESETS[0].data);
+  const [frameInput, setFrameInput] = useState<FrameProblemInput>(DEFAULT_FRAME_PRESET);
   const [rodInput, setRodInput] = useState<SteppedRodProblemInput>(DEFAULT_STEPPED_ROD_PRESET);
-  const [shaftInput, setShaftInput] = useState<TorsionShaftProblemInput>(DEFAULT_TORSION_PRESET);
-  const [sectionParts, setSectionParts] = useState<CompositePartInput[]>(DEFAULT_COMPOSITE_SECTION_PRESET);
+  const [shaftInput] = useState<TorsionShaftProblemInput>(DEFAULT_TORSION_PRESET);
+  const [sectionParts] = useState<CompositePartInput[]>(DEFAULT_COMPOSITE_SECTION_PRESET);
 
-  // Реактивный пересчет в аналитическом ядре
   const beamOutput = useMemo(() => solveBeamProblem(beamInput), [beamInput]);
   const rodOutput = useMemo(() => solveSteppedRod(rodInput), [rodInput]);
   const shaftOutput = useMemo(() => solveTorsionShaft(shaftInput), [shaftInput]);
@@ -68,7 +73,6 @@ export default function PgsMechanicsPlatformPage() {
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] text-[#1F2937]">
-      {/* Верхняя навигационная панель кафедры ПГС */}
       <header className="border-b border-gray-300 bg-white px-6 py-4 shadow-xs print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
           <div>
@@ -81,7 +85,6 @@ export default function PgsMechanicsPlatformPage() {
             </h1>
           </div>
 
-          {/* Переключатель инженерных модулей */}
           <nav className="flex flex-wrap gap-1.5">
             <button
               type="button"
@@ -93,7 +96,20 @@ export default function PgsMechanicsPlatformPage() {
               }`}
             >
               <Sliders className="h-3.5 w-3.5" />
-              <span>1. Изгиб балок и рам (N, Q, M)</span>
+              <span>1. Балки (N, Q, M)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveModule('frame')}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
+                activeModule === 'frame'
+                  ? 'bg-[#065F46] text-white shadow-xs'
+                  : 'bg-emerald-50 text-[#065F46] hover:bg-emerald-100'
+              }`}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              <span>2. Плоские рамы 2D (с шарниром C)</span>
             </button>
 
             <button
@@ -106,7 +122,7 @@ export default function PgsMechanicsPlatformPage() {
               }`}
             >
               <Maximize2 className="h-3.5 w-3.5" />
-              <span>2. Ступенчатые стержни (N, σ, Δl)</span>
+              <span>3. Ступенчатые стержни</span>
             </button>
 
             <button
@@ -119,7 +135,7 @@ export default function PgsMechanicsPlatformPage() {
               }`}
             >
               <RotateCw className="h-3.5 w-3.5" />
-              <span>3. Кручение валов (Mk, τ, φ)</span>
+              <span>4. Кручение валов</span>
             </button>
 
             <button
@@ -132,17 +148,13 @@ export default function PgsMechanicsPlatformPage() {
               }`}
             >
               <Layers className="h-3.5 w-3.5" />
-              <span>4. Геометрия сечений (ГОСТ)</span>
+              <span>5. Сечения (ГОСТ)</span>
             </button>
           </nav>
         </div>
       </header>
 
-      {/* Основная рабочая область */}
       <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
-        {/* ================================================================
-            МОДУЛЬ 1: ИЗГИБ БАЛОК И РАМ
-        ================================================================ */}
         {activeModule === 'beam' && (
           <>
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white p-3.5 shadow-xs print:hidden">
@@ -178,12 +190,12 @@ export default function PgsMechanicsPlatformPage() {
           </>
         )}
 
-        {/* ================================================================
-            МОДУЛЬ 2: РАСТЯЖЕНИЕ-СЖАТИЕ СТУПЕНЧАТЫХ СТЕРЖНЕЙ (КОНСТРУКТОР)
-        ================================================================ */}
+        {activeModule === 'frame' && (
+          <FrameWorkspace input={frameInput} onChange={setFrameInput} />
+        )}
+
         {activeModule === 'stepped_rod' && (
           <div className="space-y-6">
-            {/* 1. Интерактивный чертеж стержня с отображением ступеней разной толщины и осевых сил */}
             <div className="print:hidden">
               <SteppedRodCanvas
                 input={rodInput}
@@ -192,21 +204,12 @@ export default function PgsMechanicsPlatformPage() {
               />
             </div>
 
-            {/* 2. Табличный редактор параметров ступеней (длины, множители площадей) и нагрузок */}
             <div className="print:hidden">
-              <SteppedRodTableForm
-                input={rodInput}
-                onChange={setRodInput}
-              />
+              <SteppedRodTableForm input={rodInput} onChange={setRodInput} />
             </div>
 
-            {/* 3. Векторные эпюры N [кН], sigma [МПа], u [мм] с синхронизированным визиром */}
-            <SteppedRodDiagramsRenderer
-              input={rodInput}
-              output={rodOutput}
-            />
+            <SteppedRodDiagramsRenderer input={rodInput} output={rodOutput} />
 
-            {/* 4. Академический вывод расчета РГР с формулами KaTeX */}
             <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
               <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold text-[#1F2937]">
                 Расчетно-пояснительная записка: Растяжение-сжатие ступенчатого стержня
@@ -214,7 +217,9 @@ export default function PgsMechanicsPlatformPage() {
               <div className="space-y-3">
                 {rodSteps.map((s, idx) => (
                   <div key={idx} className="rounded border border-gray-200 bg-[#F8F9FA] p-3.5">
-                    {s.label && <div className="mb-1 text-sm font-semibold text-gray-800">{s.label}</div>}
+                    {s.label && (
+                      <div className="mb-1 text-sm font-semibold text-gray-800">{s.label}</div>
+                    )}
                     <KatexBlock math={s.katex} />
                     {s.note && (
                       <div className="mt-2 text-xs font-bold text-[#065F46]">{s.note}</div>
@@ -226,9 +231,6 @@ export default function PgsMechanicsPlatformPage() {
           </div>
         )}
 
-        {/* ================================================================
-            МОДУЛЬ 3: КРУЧЕНИЕ СТУПЕНЧАТЫХ ВАЛОВ
-        ================================================================ */}
         {activeModule === 'torsion_shaft' && (
           <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
             <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold">
@@ -245,9 +247,6 @@ export default function PgsMechanicsPlatformPage() {
           </div>
         )}
 
-        {/* ================================================================
-            МОДУЛЬ 4: ГЕОМЕТРИЧЕСКИЕ ХАРАКТЕРИСТИКИ СЛОЖНЫХ СЕЧЕНИЙ
-        ================================================================ */}
         {activeModule === 'cross_section' && (
           <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
             <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold">
