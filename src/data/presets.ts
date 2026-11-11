@@ -4,7 +4,7 @@ import {
   TorsionShaftProblemInput,
 } from '../types/mechanics';
 import { CompositePartInput } from '../core/solver/rodAndShaftSolver';
-
+import { FrameProblemInput } from '@/types/frame';
 export interface BeamPresetItem {
   id: string;
   title: string;
@@ -221,3 +221,89 @@ export const DEFAULT_COMPOSITE_SECTION_PRESET: CompositePartInput[] = [
     Izy_own_cm4: 49.0,
   },
 ];
+export const DEFAULT_FRAME_PRESET: FrameProblemInput = {
+  title: 'Составная рама с врезным шарниром C и наклонной ногой CB (из задания)',
+  allowableStress_MPa: 160,
+  nodes: [
+    { id: 'n_left', label: 'D (консоль)', x: 0, y: 4, support: 'none' },
+    { id: 'n_joint', label: 'K (узел)', x: 3, y: 4, support: 'none' },
+    { id: 'n_A', label: 'A', x: 3, y: 0, support: 'pinned' },
+    { id: 'n_C', label: 'C (шарнир)', x: 6, y: 4, support: 'none', isHinge: true },
+    { id: 'n_B', label: 'B', x: 8, y: 1, support: 'pinned' },
+  ],
+  elements: [
+    {
+      id: 'el_DK',
+      label: 'Консоль DK (3 м)',
+      nodeStartId: 'n_left',
+      nodeEndId: 'n_joint',
+      E_MPa: 2e5,
+      A_cm2: 40,
+      Iz_cm4: 3500,
+    },
+    {
+      id: 'el_AK',
+      label: 'Стойка AK (4 м)',
+      nodeStartId: 'n_A',
+      nodeEndId: 'n_joint',
+      E_MPa: 2e5,
+      A_cm2: 40,
+      Iz_cm4: 3500,
+    },
+    {
+      id: 'el_KC',
+      label: 'Ригель KC (3 м)',
+      nodeStartId: 'n_joint',
+      nodeEndId: 'n_C',
+      E_MPa: 2e5,
+      A_cm2: 40,
+      Iz_cm4: 3500,
+      releaseEnd: true,
+    },
+    {
+      id: 'el_CB',
+      label: 'Наклонный стержень CB (3.61 м)',
+      nodeStartId: 'n_C',
+      nodeEndId: 'n_B',
+      E_MPa: 2e5,
+      A_cm2: 40,
+      Iz_cm4: 3500,
+      releaseStart: true,
+    },
+  ],
+  loads: [
+    {
+      id: 'fl_P1',
+      kind: 'nodal_force',
+      nodeId: 'n_left',
+      label: 'P_1',
+      magnitude_kN: 20,
+      angleDeg: -120, // Сила P1 под углом alpha = 60° к горизонту влево-вниз
+    },
+    {
+      id: 'fl_q',
+      kind: 'member_distributed',
+      elementId: 'el_AK',
+      label: 'q',
+      qStart_kNm: 10,
+      qEnd_kNm: 10,
+      direction: 'global_x', // Горизонтальная нагрузка q вправо на стойку A (4 м)
+    },
+    {
+      id: 'fl_M',
+      kind: 'member_moment',
+      elementId: 'el_CB',
+      label: 'M',
+      tPosition: 0.25,
+      moment_kNm: -15, // Момент M по часовой стрелке на стержне CB
+    },
+    {
+      id: 'fl_P2',
+      kind: 'member_point_force',
+      elementId: 'el_CB',
+      label: 'P_2',
+      tPosition: 0.5, // Посередине наклонного участка CB (1 м и 1 м по горизонтали)
+      magnitude_kN: -18, // Перпендикулярно наклонному стержню CB
+    },
+  ],
+};
