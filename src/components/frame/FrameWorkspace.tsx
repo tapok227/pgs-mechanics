@@ -1,11 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   FrameProblemInput,
   FrameSupportType,
 } from '@/types/frame';
 import { solveFrameProblem } from '@/core/solver/frameSolver';
 import { KatexBlock } from '@/components/academic/AcademicSolutionView';
-import { Plus, Trash2, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { MobileFrameEditor } from './MobileFrameEditor';
 
 interface FrameWorkspaceProps {
   input: FrameProblemInput;
@@ -17,6 +18,16 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
   onChange,
 }) => {
   const [activeDiagram, setActiveDiagram] = useState<'none' | 'M' | 'Q' | 'N'>('M');
+  const [zoom, setZoom] = useState<number>(1);
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const dragStartRef = useRef<{
+    clientX: number;
+    clientY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
+
   const output = useMemo(() => solveFrameProblem(input), [input]);
 
   // Габариты 2D-сцены
@@ -48,6 +59,53 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
       : Math.max(output.maxAbs.N_kN, 1);
 
   const diagMaxPx = 58;
+
+  // Параметры масштабирования и панорамирования viewBox
+  const vbW = svgW / zoom;
+  const vbH = svgH / zoom;
+  const vbX = (svgW - vbW) / 2 - pan.x;
+  const vbY = (svgH - vbH) / 2 - pan.y;
+
+  const handleZoomIn = () => setZoom((z) => Math.min(3, Number((z + 0.25).toFixed(2))));
+  const handleZoomOut = () => {
+    setZoom((z) => {
+      const next = Math.max(0.75, Number((z - 0.25).toFixed(2)));
+      if (next <= 1) setPan({ x: 0, y: 0 });
+      return next;
+    });
+  };
+  const handleZoomReset = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (zoom <= 1) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragStartRef.current = {
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (!dragStartRef.current || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const dxSvg = ((e.clientX - dragStartRef.current.clientX) / Math.max(rect.width, 1)) * vbW;
+    const dySvg = ((e.clientY - dragStartRef.current.clientY) / Math.max(rect.height, 1)) * vbH;
+    const maxPanX = (svgW - vbW) / 2 + 120;
+    const maxPanY = (svgH - vbH) / 2 + 100;
+    setPan({
+      x: Math.max(-maxPanX, Math.min(maxPanX, dragStartRef.current.panX + dxSvg)),
+      y: Math.max(-maxPanY, Math.min(maxPanY, dragStartRef.current.panY + dySvg)),
+    });
+  };
+
+  const handlePointerUp = () => {
+    dragStartRef.current = null;
+  };
 
   const addNode = () => {
     const idx = input.nodes.length + 1;
@@ -91,7 +149,7 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
   return (
     <div className="space-y-6">
       {/* Панель переключения эпюр на теле рамы */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white p-4 shadow-xs">
+      <div className="flex flex-col gap-3 rounded-lg border border-gray-300 bg-white p-3 shadow-xs md:flex-row md:flex-wrap md:items-center md:justify-between md:p-4">
         <div>
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-[#1F2937]">
             2D-Конструктор плоских рам и ломаных балок (с врезными шарнирами)
@@ -101,8 +159,10 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="mr-1 text-xs font-bold text-gray-600">Отобразить на раме:</span>
+        <div className="scrollbar-none -mx-3 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap px-3 py-0.5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0">
+          <span className="mr-1 hidden text-xs font-bold text-gray-600 md:inline">
+            Отобразить на раме:
+          </span>
           {[
             { id: 'none', label: 'Только расчетная схема' },
             { id: 'M', label: 'Эпюра M (кН·м)' },
@@ -113,9 +173,9 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
               key={btn.id}
               type="button"
               onClick={() => setActiveDiagram(btn.id as typeof activeDiagram)}
-              className={`rounded px-3 py-1.5 text-xs font-bold transition ${
+              className={`shrink-0 rounded px-3 py-2 text-xs font-bold transition md:py-1.5 ${
                 activeDiagram === btn.id
-                  ? 'bg-[#065F46] text-white'
+                  ? 'bg-[#065F46] text-white shadow-xs'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -125,11 +185,59 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
         </div>
       </div>
 
-      {/* Векторный 2D-холст рамы и наложенных эпюр */}
-      <div className="rounded-lg border border-gray-300 bg-white p-4 shadow-xs">
+      {/* Векторный 2D-холст рамы и наложенных эпюр + панель масштабирования */}
+      <div className="rounded-lg border border-gray-300 bg-white p-3 shadow-xs md:p-4">
+        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs font-semibold text-gray-600">
+            {zoom > 1 ? (
+              <span className="font-bold text-[#065F46]">
+                Масштаб {Math.round(zoom * 100)}% • перетаскивайте схему пальцем/мышью для обзора узлов
+              </span>
+            ) : (
+              <span>Масштаб {Math.round(zoom * 100)}% • используйте [+] для осмотра наклонных стержней и шарнира C</span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              aria-label="Уменьшить масштаб схемы рамы"
+              className="inline-flex min-h-9 min-w-10 items-center justify-center gap-1 rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1.5 text-xs font-extrabold text-[#1F2937] transition hover:bg-gray-100 active:scale-95"
+            >
+              <ZoomOut className="h-3.5 w-3.5" />
+              <span>[−]</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              aria-label="Увеличить масштаб схемы рамы"
+              className="inline-flex min-h-9 min-w-10 items-center justify-center gap-1 rounded-md border border-[#065F46]/40 bg-emerald-50 px-2.5 py-1.5 text-xs font-extrabold text-[#065F46] transition hover:bg-emerald-100 active:scale-95"
+            >
+              <ZoomIn className="h-3.5 w-3.5" />
+              <span>[+]</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleZoomReset}
+              aria-label="Сбросить масштаб схемы рамы"
+              className="inline-flex min-h-9 items-center justify-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-bold text-gray-700 transition hover:bg-gray-100 active:scale-95"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>[Сброс]</span>
+            </button>
+          </div>
+        </div>
+
         <svg
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          className="h-auto w-full select-none rounded border border-gray-200 bg-[#F8F9FA] font-mono"
+          ref={svgRef}
+          viewBox={`${vbX} ${vbY} ${vbW} ${vbH}`}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className={`h-auto w-full select-none rounded border border-gray-200 bg-[#F8F9FA] font-mono ${
+            zoom > 1 ? 'cursor-grab touch-none active:cursor-grabbing' : 'touch-pan-y'
+          }`}
         >
           <defs>
             <marker
@@ -510,8 +618,18 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
         </svg>
       </div>
 
-      {/* Таблицы редактирования узлов (X, Y, шарнир C, опоры) и стержней */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+      {/* Мобильный редактор узлов и стержней рамы (< 768px): сворачиваемые карточки */}
+      <div className="md:hidden">
+        <MobileFrameEditor
+          input={input}
+          onChange={onChange}
+          addNode={addNode}
+          addElement={addElement}
+        />
+      </div>
+
+      {/* Таблицы редактирования узлов (X, Y, шарнир C, опоры) и стержней (десктоп md+) */}
+      <div className="hidden grid-cols-1 gap-4 md:grid lg:grid-cols-12">
         <div className="rounded-lg border border-gray-300 bg-white p-4 shadow-xs lg:col-span-6">
           <div className="mb-2 flex items-center justify-between border-b pb-2">
             <h4 className="text-xs font-bold uppercase text-[#1F2937]">
@@ -749,8 +867,8 @@ export const FrameWorkspace: React.FC<FrameWorkspaceProps> = ({
 
       {/* Академический отчет расчета плоской рамы */}
       {output.isStable && (
-        <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-3">
+        <div className="rounded-lg border border-gray-300 bg-white p-3.5 shadow-sm md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-3">
             <div>
               <h3 className="text-base font-extrabold uppercase text-[#1F2937]">
                 Расчетно-пояснительная записка: Статический расчет плоской рамы

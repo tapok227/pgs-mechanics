@@ -35,7 +35,11 @@ export const KatexBlock: React.FC<{ math: string; inline?: boolean }> = ({
 
   return (
     <span
-      className={inline ? 'inline-block' : 'my-1.5 block overflow-x-auto py-1'}
+      className={
+        inline
+          ? 'inline-block max-w-full overflow-x-auto align-middle'
+          : 'my-1.5 block max-w-full overflow-x-auto py-1'
+      }
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -63,18 +67,18 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
   }
 
   return (
-    <div className="rounded-lg border border-gray-300 bg-white p-6 text-[#1F2937] shadow-sm print:border-none print:p-0 print:shadow-none">
+    <div className="rounded-lg border border-gray-300 bg-white p-3.5 text-[#1F2937] shadow-sm md:p-6 print:border-none print:p-0 print:shadow-none">
       {/* Шапка академического листа РГР */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 border-b-2 border-[#1F2937] pb-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-[#065F46]">
-            <BookOpen className="h-4 w-4" />
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#1F2937] pb-4 md:mb-6 md:gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-[#065F46] md:text-xs">
+            <BookOpen className="h-4 w-4 shrink-0" />
             <span>Кафедра ПГС • Строительная механика и сопротивление материалов</span>
           </div>
-          <h2 className="mt-1 text-xl font-bold tracking-tight text-[#1F2937]">
+          <h2 className="mt-1 text-base font-bold tracking-tight text-[#1F2937] md:text-xl">
             {doc.title}
           </h2>
-          <p className="text-sm text-gray-600">{doc.subtitle}</p>
+          <p className="text-xs text-gray-600 md:text-sm">{doc.subtitle}</p>
         </div>
 
         <button
@@ -88,12 +92,12 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
       </div>
 
       {/* РАЗДЕЛ I. ПРЕОБРАЗОВАНИЕ В РАСЧЕТНУЮ СХЕМУ (FBD) */}
-      <section className="mb-7">
-        <h3 className="mb-2 border-l-4 border-[#1F2937] pl-3 text-base font-bold uppercase tracking-wide text-[#1F2937]">
+      <section className="mb-6 md:mb-7">
+        <h3 className="mb-2 border-l-4 border-[#1F2937] pl-3 text-sm font-bold uppercase tracking-wide text-[#1F2937] md:text-base">
           I. Преобразование в расчетную схему (FBD)
         </h3>
-        <p className="mb-3 text-sm text-gray-700">{doc.fbdSection.description}</p>
-        <div className="space-y-2.5 rounded-md bg-[#F8F9FA] p-4 border border-gray-200">
+        <p className="mb-3 text-xs text-gray-700 md:text-sm">{doc.fbdSection.description}</p>
+        <div className="space-y-2.5 rounded-md border border-gray-200 bg-[#F8F9FA] p-2.5 md:p-4">
           {doc.fbdSection.steps.map((step, idx) => (
             <FormulaStepItem key={idx} step={step} />
           ))}
@@ -101,19 +105,19 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
       </section>
 
       {/* РАЗДЕЛ II. ОПРЕДЕЛЕНИЕ ОПОРНЫХ РЕАКЦИЙ ИЗ УРАВНЕНИЙ СТАТИКИ */}
-      <section className="mb-7">
-        <h3 className="mb-2 border-l-4 border-[#2563EB] pl-3 text-base font-bold uppercase tracking-wide text-[#1F2937]">
+      <section className="mb-6 md:mb-7">
+        <h3 className="mb-2 border-l-4 border-[#2563EB] pl-3 text-sm font-bold uppercase tracking-wide text-[#1F2937] md:text-base">
           II. Определение опорных реакций (Уравнения статики)
         </h3>
-        <div className="space-y-3 rounded-md bg-[#F8F9FA] p-4 border border-gray-200">
+        <div className="space-y-3 rounded-md border border-gray-200 bg-[#F8F9FA] p-2.5 md:p-4">
           {doc.staticsSection.steps.map((step, idx) => (
             <FormulaStepItem key={idx} step={step} />
           ))}
 
           {/* Плашка обязательной статической проверки (стиль меловой доски #065F46) */}
-          <div className="mt-4 rounded-md border border-[#065F46]/40 bg-[#065F46]/5 p-3.5">
+          <div className="mt-4 rounded-md border border-[#065F46]/40 bg-[#065F46]/5 p-2.5 md:p-3.5">
             <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#065F46]">
-              <CheckCircle2 className="h-4 w-4" />
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
               <span>Обязательная проверка равновесия</span>
             </div>
             <FormulaStepItem step={doc.staticsSection.verificationStep} />
@@ -122,13 +126,13 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
       </section>
 
       {/* РАЗДЕЛ III. МЕТОД СЕЧЕНИЙ (РОРО) И ПОСТРОЕНИЕ ЭПЮР ПО УЧАСТКАМ */}
-      <section className="mb-7">
-        <h3 className="mb-2 border-l-4 border-[#DC2626] pl-3 text-base font-bold uppercase tracking-wide text-[#1F2937]">
+      <section className="mb-6 md:mb-7">
+        <h3 className="mb-2 border-l-4 border-[#DC2626] pl-3 text-sm font-bold uppercase tracking-wide text-[#1F2937] md:text-base">
           III. Метод сечений (РОРО) и аналитические уравнения эпюр Q и M
         </h3>
-        <p className="mb-4 text-sm text-gray-700">{doc.sectionsMethod.introText}</p>
+        <p className="mb-4 text-xs text-gray-700 md:text-sm">{doc.sectionsMethod.introText}</p>
 
-        <div className="space-y-5">
+        <div className="space-y-4 md:space-y-5">
           {doc.sectionsMethod.segmentBlocks.map((block) => {
             const reactionsLeft = solverOutput.reactions.filter(
               (r) => r.x <= block.segmentData.xStart + 1e-5
@@ -136,11 +140,11 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
             return (
               <div
                 key={block.segmentIndex}
-                className="rounded-md border border-gray-300 bg-[#F8F9FA] p-4"
+                className="rounded-md border border-gray-300 bg-[#F8F9FA] p-2.5 md:p-4"
               >
-                <div className="mb-2 flex flex-wrap items-center justify-between border-b border-gray-200 pb-2">
-                  <span className="font-bold text-[#1F2937]">{block.intervalTitle}</span>
-                  <span className="rounded bg-white px-2.5 py-0.5 text-xs font-semibold border border-gray-200">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-1.5 border-b border-gray-200 pb-2">
+                  <span className="text-sm font-bold text-[#1F2937] md:text-base">{block.intervalTitle}</span>
+                  <span className="rounded border border-gray-200 bg-white px-2 py-0.5 text-xs font-semibold">
                     <KatexBlock math={block.boundsKatex} inline />
                   </span>
                 </div>
@@ -165,10 +169,10 @@ export const AcademicSolutionView: React.FC<AcademicSolutionViewProps> = ({
 
       {/* РАЗДЕЛ IV. РАСЧЕТ НА ПРОЧНОСТЬ И ПОДБОР СЕЧЕНИЯ ПО СОРТАМЕНТУ ГОСТ */}
       <section>
-        <h3 className="mb-2 border-l-4 border-[#065F46] pl-3 text-base font-bold uppercase tracking-wide text-[#1F2937]">
+        <h3 className="mb-2 border-l-4 border-[#065F46] pl-3 text-sm font-bold uppercase tracking-wide text-[#1F2937] md:text-base">
           IV. Подбор поперечного сечения из условия прочности
         </h3>
-        <div className="space-y-3 rounded-md bg-[#F8F9FA] p-4 border border-gray-200">
+        <div className="space-y-3 rounded-md border border-gray-200 bg-[#F8F9FA] p-2.5 md:p-4">
           {doc.strengthSection.steps.map((step, idx) => (
             <FormulaStepItem key={idx} step={step} />
           ))}

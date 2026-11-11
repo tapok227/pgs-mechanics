@@ -48,6 +48,56 @@ import {
 
 type ExtendedModuleType = ProblemType | 'frame';
 
+const MODULE_TABS: Array<{
+  id: ExtendedModuleType;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  activeClass: string;
+  ringClass: string;
+  idleClass: string;
+}> = [
+  {
+    id: 'beam',
+    label: '1. Балки (N, Q, M)',
+    icon: Sliders,
+    activeClass: 'bg-[#1F2937]',
+    ringClass: 'ring-[#1F2937]/30',
+    idleClass: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  },
+  {
+    id: 'frame',
+    label: '2. Плоские рамы 2D (с шарниром C)',
+    icon: GitBranch,
+    activeClass: 'bg-[#065F46]',
+    ringClass: 'ring-[#065F46]/30',
+    idleClass: 'bg-emerald-50 text-[#065F46] hover:bg-emerald-100',
+  },
+  {
+    id: 'stepped_rod',
+    label: '3. Ступенчатые стержни',
+    icon: Maximize2,
+    activeClass: 'bg-[#1F2937]',
+    ringClass: 'ring-[#1F2937]/30',
+    idleClass: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  },
+  {
+    id: 'torsion_shaft',
+    label: '4. Кручение валов',
+    icon: RotateCw,
+    activeClass: 'bg-[#1F2937]',
+    ringClass: 'ring-[#1F2937]/30',
+    idleClass: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  },
+  {
+    id: 'cross_section',
+    label: '5. Сечения (ГОСТ)',
+    icon: Layers,
+    activeClass: 'bg-[#1F2937]',
+    ringClass: 'ring-[#1F2937]/30',
+    idleClass: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+  },
+];
+
 export default function PgsMechanicsPlatformPage() {
   const [activeModule, setActiveModule] = useState<ExtendedModuleType>('beam');
 
@@ -72,102 +122,62 @@ export default function PgsMechanicsPlatformPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] text-[#1F2937]">
-      <header className="border-b border-gray-300 bg-white px-6 py-4 shadow-xs print:hidden">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#065F46]">
-              <Compass className="h-4 w-4" />
-              <span>Интерактивный САПР-конструктор • Кафедра ПГС</span>
+    <div className="min-h-screen overflow-x-clip bg-[#F3F4F6] text-[#1F2937]">
+      <header className="border-b border-gray-300 bg-white px-3 py-3 shadow-xs md:px-6 md:py-4 print:hidden">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-[#065F46] md:text-xs">
+              <Compass className="h-4 w-4 shrink-0" />
+              <span className="truncate">Интерактивный САПР-конструктор • Кафедра ПГС</span>
             </div>
-            <h1 className="text-lg font-extrabold tracking-tight text-[#1F2937]">
+            <h1 className="text-base font-extrabold leading-tight tracking-tight text-[#1F2937] md:text-lg">
               Статика, Сопротивление материалов и Строительная механика
             </h1>
           </div>
 
-          <nav className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setActiveModule('beam')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
-                activeModule === 'beam'
-                  ? 'bg-[#1F2937] text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Sliders className="h-3.5 w-3.5" />
-              <span>1. Балки (N, Q, M)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveModule('frame')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
-                activeModule === 'frame'
-                  ? 'bg-[#065F46] text-white shadow-xs'
-                  : 'bg-emerald-50 text-[#065F46] hover:bg-emerald-100'
-              }`}
-            >
-              <GitBranch className="h-3.5 w-3.5" />
-              <span>2. Плоские рамы 2D (с шарниром C)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveModule('stepped_rod')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
-                activeModule === 'stepped_rod'
-                  ? 'bg-[#1F2937] text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Maximize2 className="h-3.5 w-3.5" />
-              <span>3. Ступенчатые стержни</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveModule('torsion_shaft')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
-                activeModule === 'torsion_shaft'
-                  ? 'bg-[#1F2937] text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <RotateCw className="h-3.5 w-3.5" />
-              <span>4. Кручение валов</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveModule('cross_section')}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-xs font-bold transition ${
-                activeModule === 'cross_section'
-                  ? 'bg-[#1F2937] text-white shadow-xs'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>5. Сечения (ГОСТ)</span>
-            </button>
+          {/* Горизонтальная лента модулей: на смартфонах прокручивается пальцем, не переносится */}
+          <nav
+            aria-label="Модули платформы"
+            className="scrollbar-none -mx-3 flex snap-x gap-2 overflow-x-auto whitespace-nowrap px-3 py-1 md:mx-0 md:flex-wrap md:gap-1.5 md:overflow-visible md:px-0 md:whitespace-normal [&>button]:shrink-0 [&>button]:snap-start"
+          >
+            {MODULE_TABS.map((tab) => {
+              const isActive = activeModule === tab.id;
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveModule(tab.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`inline-flex items-center gap-1.5 rounded-md px-3.5 py-2.5 text-xs font-bold transition md:px-3 md:py-2 ${
+                    isActive
+                      ? `${tab.activeClass} text-white shadow-md ring-2 ring-offset-1 ${tab.ringClass}`
+                      : tab.idleClass
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </nav>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
+      <main className="mx-auto max-w-7xl space-y-4 px-3 py-4 md:space-y-6 md:px-6 md:py-6">
         {activeModule === 'beam' && (
           <>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-300 bg-white p-3.5 shadow-xs print:hidden">
-              <span className="text-xs font-bold uppercase tracking-wider text-gray-600">
+            <div className="flex flex-col gap-2 rounded-lg border border-gray-300 bg-white p-3 shadow-xs md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-3 md:p-3.5 print:hidden">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-gray-600 md:text-xs">
                 Типовые расчетные схемы из задачников и РГР:
               </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="scrollbar-none -mx-3 flex gap-2 overflow-x-auto whitespace-nowrap px-3 pb-0.5 md:mx-0 md:flex-wrap md:overflow-visible md:px-0 md:whitespace-normal">
                 {BEAM_PRESETS.map((preset) => (
                   <button
                     key={preset.id}
                     type="button"
                     onClick={() => setBeamInput(preset.data)}
-                    className="rounded border border-gray-300 bg-[#F8F9FA] px-3 py-1.5 text-xs font-semibold text-[#1F2937] transition hover:border-[#065F46] hover:bg-[#065F46]/5"
+                    className="shrink-0 rounded border border-gray-300 bg-[#F8F9FA] px-3 py-2 text-xs font-semibold text-[#1F2937] transition hover:border-[#065F46] hover:bg-[#065F46]/5 active:bg-[#065F46]/10 md:py-1.5"
                     title={preset.sourceNote}
                   >
                     {preset.title}
@@ -210,8 +220,8 @@ export default function PgsMechanicsPlatformPage() {
 
             <SteppedRodDiagramsRenderer input={rodInput} output={rodOutput} />
 
-            <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold text-[#1F2937]">
+            <div className="rounded-lg border border-gray-300 bg-white p-3 shadow-sm md:p-6">
+              <h2 className="mb-4 border-b border-gray-200 pb-2 text-base font-bold md:text-lg text-[#1F2937]">
                 Расчетно-пояснительная записка: Растяжение-сжатие ступенчатого стержня
               </h2>
               <div className="space-y-3">
@@ -232,8 +242,8 @@ export default function PgsMechanicsPlatformPage() {
         )}
 
         {activeModule === 'torsion_shaft' && (
-          <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold">
+          <div className="rounded-lg border border-gray-300 bg-white p-3 shadow-sm md:p-6">
+            <h2 className="mb-4 border-b border-gray-200 pb-2 text-base font-bold md:text-lg">
               Модуль В: Расчет ступенчатого вала на кручение
             </h2>
             <div className="space-y-3">
@@ -248,8 +258,8 @@ export default function PgsMechanicsPlatformPage() {
         )}
 
         {activeModule === 'cross_section' && (
-          <div className="rounded-lg border border-gray-300 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 border-b border-gray-200 pb-2 text-lg font-bold">
+          <div className="rounded-lg border border-gray-300 bg-white p-3 shadow-sm md:p-6">
+            <h2 className="mb-4 border-b border-gray-200 pb-2 text-base font-bold md:text-lg">
               Модуль Г: Геометрические характеристики составного прокатного сечения
             </h2>
             <div className="rounded border border-gray-200 bg-[#F8F9FA] p-4">

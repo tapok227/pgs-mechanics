@@ -90,9 +90,9 @@ export const InteractiveBeamCanvas: React.FC<InteractiveBeamCanvasProps> = ({
   );
 
   return (
-    <div className="rounded-lg border border-gray-300 bg-white p-4 shadow-xs">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 pb-2.5">
-        <div className="flex items-center gap-2">
+    <div className="rounded-lg border border-gray-300 bg-white p-3 shadow-xs md:p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-2.5 md:gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
           <span className="text-xs font-bold uppercase tracking-wider text-[#1F2937]">
             Интерактивный холст балки (Drag & Drop):
           </span>
@@ -101,7 +101,7 @@ export const InteractiveBeamCanvas: React.FC<InteractiveBeamCanvasProps> = ({
           </span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs md:gap-3">
           <label className="inline-flex cursor-pointer items-center gap-1.5 font-medium text-gray-700">
             <input
               type="checkbox"

@@ -12,6 +12,7 @@ import {
   generateHatchLines,
   computeSignBadgePositions,
 } from './svgMathUtils';
+import { useIsMobile } from '@/hooks/useMediaQuery';
 
 interface BeamDiagramsRendererProps {
   input: BeamProblemInput;
@@ -30,6 +31,7 @@ export const BeamDiagramsRenderer: React.FC<BeamDiagramsRendererProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverX_m, setHoverX_m] = useState<number | null>(null);
+  const isMobile = useIsMobile();
 
   const hasAxialForces = useMemo(() => {
     if (showNormalForceDiagram !== undefined) return showNormalForceDiagram;
@@ -97,6 +99,19 @@ export const BeamDiagramsRenderer: React.FC<BeamDiagramsRendererProps> = ({
     if (hoverX_m === null) return null;
     return sampleBeamAtX(solverOutput, hoverX_m);
   }, [hoverX_m, solverOutput]);
+
+  // На экранах < 768px — сенсорный режим: вкладки эпюр + слайдер визира + HUD.
+  // Десктопная лента эпюр с визиром мыши рендерится без изменений.
+  if (isMobile) {
+    return (
+      <MobileBeamDiagrams
+        input={input}
+        solverOutput={solverOutput}
+        hasAxialForces={hasAxialForces}
+        onCrosshairMove={onCrosshairMove}
+      />
+    );
+  }
 
   return (
     <div className="relative w-full overflow-x-auto rounded-lg border border-gray-300 bg-[#F8F9FA] shadow-sm">
@@ -491,6 +506,10 @@ interface DiagramTrackProps {
   invertY: boolean;
   showSigns: boolean;
   xToPx: (x_m: number) => number;
+  /** Показывать подпись названия эпюры слева (на мобильных название выводится во вкладке) */
+  showTitle?: boolean;
+  /** Масштаб шрифтов ординат и знаков (для крупного мобильного режима), по умолчанию 1 */
+  fontScale?: number;
 }
 
 const DiagramTrack: React.FC<DiagramTrackProps> = ({
@@ -505,22 +524,27 @@ const DiagramTrack: React.FC<DiagramTrackProps> = ({
   invertY,
   showSigns,
   xToPx,
+  showTitle = true,
+  fontScale = 1,
 }) => {
   const signDir = invertY ? -1 : 1;
+  const fs = fontScale;
 
   return (
     <g>
       {/* Подпись названия эпюры слева */}
-      <text
-        x={22}
-        y={baseY - 4}
-        fill={PGS_PALETTE.graphite}
-        fontSize="14"
-        fontWeight="bold"
-      >
-        {title}
-      </text>
-      {subtitle && (
+      {showTitle && (
+        <text
+          x={22}
+          y={baseY - 4}
+          fill={PGS_PALETTE.graphite}
+          fontSize="14"
+          fontWeight="bold"
+        >
+          {title}
+        </text>
+      )}
+      {showTitle && subtitle && (
         <text x={22} y={baseY + 12} fill={PGS_PALETTE.chalkGreen} fontSize="9.5">
           ({subtitle})
         </text>
@@ -624,16 +648,16 @@ const DiagramTrack: React.FC<DiagramTrackProps> = ({
             {badges.map((b, bIdx) => (
               <g key={`badge-${bIdx}`} transform={`translate(${b.x}, ${b.y})`}>
                 <circle
-                  r="9"
+                  r={9 * fs}
                   fill={PGS_PALETTE.paperBg}
                   stroke={PGS_PALETTE.graphite}
                   strokeWidth="1.2"
                 />
                 <text
                   x="0"
-                  y="3.5"
+                  y={3.5 * fs}
                   textAnchor="middle"
-                  fontSize="12"
+                  fontSize={12 * fs}
                   fontWeight="bold"
                   fill={b.sign === '+' ? PGS_PALETTE.reactionBlue : PGS_PALETTE.loadRuby}
                 >
@@ -646,17 +670,19 @@ const DiagramTrack: React.FC<DiagramTrackProps> = ({
             {Math.abs(valStart) > 1e-2 && (
               <OrdinateLabel
                 x={sx1 + 4}
-                y={yStart + (yStart >= baseY ? 13 : -6)}
+                y={yStart + (yStart >= baseY ? 13 * fs : -6 * fs)}
                 value={showSigns ? valStart : Math.abs(valStart)}
                 anchor="start"
+                fontScale={fs}
               />
             )}
             {Math.abs(valEnd) > 1e-2 && (
               <OrdinateLabel
                 x={sx2 - 4}
-                y={yEnd + (yEnd >= baseY ? 13 : -6)}
+                y={yEnd + (yEnd >= baseY ? 13 * fs : -6 * fs)}
                 value={showSigns ? valEnd : Math.abs(valEnd)}
                 anchor="end"
+                fontScale={fs}
               />
             )}
 
@@ -676,13 +702,14 @@ const DiagramTrack: React.FC<DiagramTrackProps> = ({
                       strokeWidth="1.4"
                       strokeDasharray="2 2"
                     />
-                    <circle cx={exPx} cy={eyPx} r="3.5" fill={PGS_PALETTE.chalkGreen} />
+                    <circle cx={exPx} cy={eyPx} r={3.5 * fs} fill={PGS_PALETTE.chalkGreen} />
                     <OrdinateLabel
                       x={exPx}
-                      y={eyPx + (eyPx >= baseY ? 15 : -8)}
+                      y={eyPx + (eyPx >= baseY ? 15 * fs : -8 * fs)}
                       value={Math.abs(ext.M_value)}
                       anchor="middle"
                       highlight
+                      fontScale={fs}
                     />
                   </g>
                 );
@@ -700,18 +727,19 @@ const OrdinateLabel: React.FC<{
   value: number;
   anchor: 'start' | 'middle' | 'end';
   highlight?: boolean;
-}> = ({ x, y, value, anchor, highlight }) => {
+  fontScale?: number;
+}> = ({ x, y, value, anchor, highlight, fontScale = 1 }) => {
   const formatted = Number(value.toFixed(2)).toString();
   return (
     <text
       x={x}
       y={y}
       textAnchor={anchor}
-      fontSize={highlight ? '12' : '11'}
+      fontSize={(highlight ? 12 : 11) * fontScale}
       fontWeight="bold"
       fill={highlight ? PGS_PALETTE.chalkGreen : PGS_PALETTE.graphite}
       stroke={PGS_PALETTE.paperBg}
-      strokeWidth="3"
+      strokeWidth={3 * fontScale}
       paintOrder="stroke"
     >
       {formatted}
@@ -1086,5 +1114,457 @@ const ReactionVectorsSymbol: React.FC<{
         </g>
       )}
     </g>
+  );
+};
+
+// ============================================================================
+// МОБИЛЬНЫЙ РЕЖИМ ЭПЮР (< 768px): ВКЛАДКИ M / Q / N + СЕНСОРНЫЙ ВИЗИР + HUD
+// ============================================================================
+
+type MobileDiagramTab = 'M' | 'Q' | 'N';
+
+const MOBILE_FINE_STEPS: Array<{ delta: number; label: string }> = [
+  { delta: -0.5, label: '− 0.5м' },
+  { delta: -0.1, label: '− 0.1м' },
+  { delta: 0.1, label: '+ 0.1м' },
+  { delta: 0.5, label: '+ 0.5м' },
+];
+
+const MOBILE_SLIDER_STEP = 0.05;
+
+interface MobileBeamDiagramsProps {
+  input: BeamProblemInput;
+  solverOutput: BeamSolverOutput;
+  hasAxialForces: boolean;
+  onCrosshairMove?: (xMeters: number | null) => void;
+}
+
+const MobileBeamDiagrams: React.FC<MobileBeamDiagramsProps> = ({
+  input,
+  solverOutput,
+  hasAxialForces,
+  onCrosshairMove,
+}) => {
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const [activeTab, setActiveTab] = useState<MobileDiagramTab>('M');
+  const [rawX_m, setRawX_m] = useState<number>(0);
+
+  const L = Math.max(input.length, 0.001);
+  // Визир всегда остается в пределах балки, даже если длину L уменьшили
+  const xCur = Math.max(0, Math.min(input.length, rawX_m));
+
+  // Компактная геометрия холста: узкий viewBox => крупные числа при 100% ширины экрана
+  const W = 380;
+  const padL = 30;
+  const padR = 30;
+  const plotW = W - padL - padR;
+  const ySchem = 76;
+  const maxAmp = 86;
+  const baseY = 128 + maxAmp + 22;
+  const H = baseY + maxAmp + 46;
+  const fontScale = 1.32;
+
+  const xToPx = (x_m: number) => padL + (x_m / L) * plotW;
+
+  const commitX = (x: number) => {
+    const clamped = Math.max(0, Math.min(input.length, x));
+    const rounded = Number(clamped.toFixed(3));
+    setRawX_m(rounded);
+    onCrosshairMove?.(rounded);
+  };
+
+  const snapToStep = (x: number) =>
+    Math.round(x / MOBILE_SLIDER_STEP) * MOBILE_SLIDER_STEP;
+
+  // Касание графика (tap) переносит визир; прокрутка страницы при этом не блокируется
+  const handleTap = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const svgX = ((e.clientX - rect.left) * W) / rect.width;
+    const x = ((svgX - padL) / plotW) * input.length;
+    commitX(snapToStep(x));
+  };
+
+  const ext = solverOutput.extremaAndMax;
+  const tabs: Array<{
+    id: MobileDiagramTab;
+    label: string;
+    unit: string;
+    maxAbs: number;
+    accent: string;
+  }> = [
+    { id: 'M', label: 'Эпюра M', unit: 'кН·м', maxAbs: ext.M_max_abs, accent: 'bg-[#065F46]' },
+    { id: 'Q', label: 'Эпюра Q', unit: 'кН', maxAbs: ext.Q_max_abs, accent: 'bg-[#2563EB]' },
+    { id: 'N', label: 'Эпюра N', unit: 'кН', maxAbs: ext.N_max_abs, accent: 'bg-[#1F2937]' },
+  ];
+  const tabMeta = tabs.find((t) => t.id === activeTab) ?? tabs[0];
+
+  const polyKey: 'M_poly' | 'Q_poly' | 'N_poly' =
+    activeTab === 'M' ? 'M_poly' : activeTab === 'Q' ? 'Q_poly' : 'N_poly';
+  const isMoment = activeTab === 'M';
+  const scaleY = tabMeta.maxAbs > 1e-4 ? maxAmp / tabMeta.maxAbs : 1;
+
+  const crosshairData = useMemo(
+    () => sampleBeamAtX(solverOutput, xCur),
+    [solverOutput, xCur]
+  );
+
+  const crosshairValue = crosshairData
+    ? activeTab === 'M'
+      ? crosshairData.M_kNm
+      : activeTab === 'Q'
+      ? crosshairData.Q_kN
+      : crosshairData.N_kN
+    : 0;
+  // ПГС: M > 0 откладывается вниз (растянутые волокна), Q и N > 0 — вверх
+  const crosshairDotY = isMoment
+    ? baseY + crosshairValue * scaleY
+    : baseY - crosshairValue * scaleY;
+
+  // Подписи характерных сечений по оси x (без наложения соседних подписей)
+  const axisTicks = useMemo(() => {
+    const xs = Array.from(
+      new Set([0, ...solverOutput.criticalPointsX, input.length].map((v) => Number(v.toFixed(3))))
+    ).sort((a, b) => a - b);
+    const minGapPx = 34;
+    const result: number[] = [];
+    xs.forEach((xv) => {
+      const px = padL + (xv / L) * plotW;
+      const last = result[result.length - 1];
+      const lastPx = last === undefined ? -Infinity : padL + (last / L) * plotW;
+      if (px - lastPx >= minGapPx) {
+        result.push(xv);
+      } else if (Math.abs(xv - input.length) < 1e-6 && result.length > 1) {
+        // Конец балки важнее промежуточной подписи
+        result[result.length - 1] = xv;
+      }
+    });
+    return result;
+  }, [solverOutput.criticalPointsX, input.length, L, plotW]);
+
+  // Быстрый переход к характерным сечениям и экстремумам M(x0)
+  const jumpTargets = useMemo(() => {
+    const items: Array<{ key: string; x: number; label: string; accent?: boolean }> = [];
+    input.supports.forEach((s) =>
+      items.push({ key: `s-${s.id}`, x: s.x, label: `${s.label} (${Number(s.x.toFixed(2))} м)` })
+    );
+    solverOutput.segments.forEach((seg) =>
+      seg.localExtrema.forEach((e, idx) =>
+        items.push({
+          key: `e-${seg.index}-${idx}`,
+          x: e.xGlobal,
+          label: `M экстр. x₀=${Number(e.xGlobal.toFixed(2))} м`,
+          accent: true,
+        })
+      )
+    );
+    return items.sort((a, b) => a.x - b.x);
+  }, [input.supports, solverOutput.segments]);
+
+  const fillPct = (xCur / L) * 100;
+  const rangeStyle = { ['--pgs-range-fill' as string]: `${fillPct}%` } as React.CSSProperties;
+
+  const fiberText = crosshairData
+    ? crosshairData.stretchedFiber === 'bottom'
+      ? 'нижние (эпюра M вниз)'
+      : crosshairData.stretchedFiber === 'top'
+      ? 'верхние (эпюра M вверх)'
+      : 'не деформированы (M = 0)'
+    : '—';
+
+  const fmt = (v: number) => (Math.abs(v) < 5e-3 ? '0.00' : v.toFixed(2));
+
+  return (
+    <div className="space-y-3">
+      {/* Переключатель эпюр */}
+      <div className="rounded-xl border border-gray-300 bg-white p-1.5 shadow-sm">
+        <div role="tablist" aria-label="Эпюры внутренних усилий" className="grid grid-cols-3 gap-1.5">
+          {tabs.map((t) => {
+            const isActive = t.id === activeTab;
+            const isEmpty = t.id === 'N' && !hasAxialForces;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(t.id)}
+                className={`flex min-h-12 flex-col items-center justify-center rounded-lg px-2 py-1.5 text-sm font-extrabold transition ${
+                  isActive
+                    ? `${t.accent} text-white shadow-md`
+                    : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+                }`}
+              >
+                <span>{t.label}</span>
+                <span
+                  className={`font-mono text-[10px] font-semibold ${
+                    isActive ? 'text-white/85' : 'text-gray-500'
+                  }`}
+                >
+                  {isEmpty ? 'N ≡ 0' : `|max| ${Number(t.maxAbs.toFixed(2))}`}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* HUD-виджет визира: закреплен над эпюрой при прокрутке */}
+      <div
+        aria-live="polite"
+        className="sticky top-2 z-20 rounded-xl border-2 border-[#065F46] bg-white/95 p-3 text-[#1F2937] shadow-lg backdrop-blur-sm"
+      >
+        {crosshairData ? (
+          <>
+            <div className="flex items-baseline justify-between gap-2">
+              <div className="font-mono text-lg font-extrabold text-[#065F46]">
+                x = {xCur.toFixed(2)} м
+              </div>
+              <div className="text-xs font-bold text-gray-500">
+                Участок №{crosshairData.segmentIndex}
+              </div>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
+              {[
+                { id: 'M' as const, name: 'M(x)', value: Math.abs(crosshairData.M_kNm), unit: 'кН·м', tone: 'bg-emerald-50 text-emerald-900', ring: 'ring-[#065F46]' },
+                { id: 'Q' as const, name: 'Q(x)', value: crosshairData.Q_kN, unit: 'кН', tone: 'bg-blue-50 text-blue-900', ring: 'ring-[#2563EB]' },
+                { id: 'N' as const, name: 'N(x)', value: crosshairData.N_kN, unit: 'кН', tone: 'bg-gray-100 text-gray-900', ring: 'ring-[#1F2937]' },
+              ].map((tile) => (
+                <button
+                  key={tile.id}
+                  type="button"
+                  onClick={() => setActiveTab(tile.id)}
+                  className={`rounded-lg px-1 py-1.5 text-center ${tile.tone} ${
+                    activeTab === tile.id ? `ring-2 ${tile.ring}` : ''
+                  }`}
+                >
+                  <div className="text-[11px] font-bold opacity-75">{tile.name}</div>
+                  <div className="font-mono text-base font-extrabold leading-tight">
+                    {fmt(tile.value)}
+                  </div>
+                  <div className="text-[10px] font-semibold opacity-70">{tile.unit}</div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 text-[13px] leading-snug">
+              <span className="text-gray-600">Растянуты волокна: </span>
+              <span className="font-bold">{fiberText}</span>
+            </div>
+            <div className="mt-1 flex justify-between gap-2 font-mono text-[11px] text-gray-600">
+              <span>σ верх: {crosshairData.stressProfile.sigmaTop_MPa.toFixed(1)} МПа</span>
+              <span>σ низ: {crosshairData.stressProfile.sigmaBottom_MPa.toFixed(1)} МПа</span>
+            </div>
+          </>
+        ) : (
+          <div className="text-sm font-semibold text-red-700">
+            Визир недоступен: {solverOutput.errorMessage ?? 'схема не рассчитана'}
+          </div>
+        )}
+      </div>
+
+      {/* Эпюра на 100% ширины экрана */}
+      <div className="w-full overflow-hidden rounded-xl border border-gray-300 bg-[#F8F9FA] shadow-sm">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          className="block h-auto w-full select-none font-mono"
+          onClick={handleTap}
+          role="img"
+          aria-label={`${tabMeta.label}, ${tabMeta.unit}`}
+        >
+          <defs>
+            <pattern id="pgs-grid-minor" width="16" height="16" patternUnits="userSpaceOnUse">
+              <path d="M 16 0 L 0 0 0 16" fill="none" stroke={PGS_PALETTE.gridMinor} strokeWidth="0.7" />
+            </pattern>
+            <marker
+              id="arrow-load"
+              viewBox="0 0 10 10"
+              refX="9"
+              refY="5"
+              markerWidth="6.5"
+              markerHeight="6.5"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill={PGS_PALETTE.loadRuby} />
+            </marker>
+          </defs>
+
+          <rect width={W} height={H} fill={PGS_PALETTE.paperBg} />
+          <rect width={W} height={H} fill="url(#pgs-grid-minor)" />
+
+          {/* Линии привязки характерных сечений */}
+          {solverOutput.criticalPointsX.map((xVal, idx) => (
+            <line
+              key={`m-guide-${idx}`}
+              x1={xToPx(xVal)}
+              y1={ySchem - 30}
+              x2={xToPx(xVal)}
+              y2={H - 30}
+              stroke={PGS_PALETTE.guideline}
+              strokeWidth="1"
+              strokeDasharray="4 4"
+            />
+          ))}
+
+          {/* Миниатюрная расчетная схема для ориентации */}
+          <line
+            x1={xToPx(0)}
+            y1={ySchem}
+            x2={xToPx(input.length)}
+            y2={ySchem}
+            stroke={PGS_PALETTE.graphite}
+            strokeWidth="5"
+          />
+          {input.loads.map((load) => (
+            <LoadSymbol key={load.id} load={load} xToPx={xToPx} yBeam={ySchem} />
+          ))}
+          {input.supports.map((sup) => (
+            <SupportSymbol
+              key={sup.id}
+              support={sup}
+              cx={xToPx(sup.x)}
+              cy={ySchem}
+              isRightEnd={Math.abs(sup.x - input.length) < 1e-4 && sup.x > 0}
+            />
+          ))}
+
+          {/* Выбранная эпюра */}
+          <text
+            x={padL}
+            y={baseY - maxAmp - 10}
+            fontSize="15"
+            fontWeight="bold"
+            fill={PGS_PALETTE.graphite}
+          >
+            {activeTab} ({tabMeta.unit})
+            {isMoment && (
+              <tspan fontSize="11" fill={PGS_PALETTE.chalkGreen}>
+                {' '}— на растянутых волокнах
+              </tspan>
+            )}
+          </text>
+          <DiagramTrack
+            title={`${activeTab} (${tabMeta.unit})`}
+            unit={tabMeta.unit}
+            baseY={baseY}
+            xStartPx={xToPx(0)}
+            xEndPx={xToPx(input.length)}
+            segments={solverOutput.segments}
+            polyKey={polyKey}
+            scaleY={scaleY}
+            invertY={!isMoment}
+            showSigns={!isMoment}
+            xToPx={xToPx}
+            showTitle={false}
+            fontScale={fontScale}
+          />
+          {activeTab === 'N' && !hasAxialForces && (
+            <text
+              x={W / 2}
+              y={baseY - 14}
+              textAnchor="middle"
+              fontSize="13"
+              fontWeight="bold"
+              fill={PGS_PALETTE.graphite}
+            >
+              N(x) ≡ 0 — продольных сил нет
+            </text>
+          )}
+
+          {/* Подписи оси x в характерных сечениях */}
+          {axisTicks.map((xv) => (
+            <text
+              key={`tick-${xv}`}
+              x={xToPx(xv)}
+              y={H - 12}
+              textAnchor="middle"
+              fontSize="12"
+              fontWeight="600"
+              fill={PGS_PALETTE.graphite}
+            >
+              {Number(xv.toFixed(2))}
+            </text>
+          ))}
+
+          {/* Вертикальная пунктирная линия визира */}
+          {crosshairData && (
+            <g className="pointer-events-none">
+              <line
+                x1={xToPx(xCur)}
+                y1={ySchem - 40}
+                x2={xToPx(xCur)}
+                y2={H - 28}
+                stroke={PGS_PALETTE.chalkGreen}
+                strokeWidth="2.2"
+                strokeDasharray="7 4"
+              />
+              <circle cx={xToPx(xCur)} cy={ySchem} r="5" fill={PGS_PALETTE.chalkGreen} />
+              <circle
+                cx={xToPx(xCur)}
+                cy={crosshairDotY}
+                r="6.5"
+                fill={isMoment ? PGS_PALETTE.chalkGreen : PGS_PALETTE.reactionBlue}
+                stroke="#fff"
+                strokeWidth="2"
+              />
+            </g>
+          )}
+        </svg>
+      </div>
+
+      {/* Сенсорная панель управления визиром */}
+      <div className="rounded-xl border border-gray-300 bg-white p-3 shadow-sm">
+        <div className="flex items-center justify-between text-xs font-bold text-gray-600">
+          <span className="uppercase tracking-wider">Визир сечения</span>
+          <span className="font-mono">0 … {Number(input.length.toFixed(2))} м</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={input.length}
+          step={MOBILE_SLIDER_STEP}
+          value={xCur}
+          onChange={(e) => commitX(Number(e.target.value))}
+          className="pgs-range mt-1"
+          style={rangeStyle}
+          aria-label="Положение сечения x, м"
+          aria-valuetext={`x = ${xCur.toFixed(2)} м`}
+        />
+        <div className="mt-1 grid grid-cols-4 gap-2">
+          {MOBILE_FINE_STEPS.map((s) => (
+            <button
+              key={s.label}
+              type="button"
+              onClick={() => commitX(xCur + s.delta)}
+              className={`h-12 rounded-lg border text-sm font-extrabold transition active:scale-95 ${
+                s.delta < 0
+                  ? 'border-gray-300 bg-gray-50 text-[#1F2937] active:bg-gray-200'
+                  : 'border-[#065F46]/40 bg-emerald-50 text-[#065F46] active:bg-emerald-100'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+        {jumpTargets.length > 0 && (
+          <div className="scrollbar-none -mx-3 mt-3 flex gap-2 overflow-x-auto whitespace-nowrap px-3">
+            {jumpTargets.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => commitX(t.x)}
+                className={`shrink-0 rounded-full border px-3 py-2 text-xs font-bold ${
+                  t.accent
+                    ? 'border-[#065F46]/50 bg-[#065F46]/10 text-[#065F46]'
+                    : 'border-gray-300 bg-gray-50 text-gray-700'
+                }`}
+              >
+                → {t.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   );
 };

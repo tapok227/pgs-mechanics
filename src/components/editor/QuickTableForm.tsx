@@ -8,6 +8,7 @@ import {
   DistributedLoad,
 } from '@/types/mechanics';
 import { Plus, Trash2 } from 'lucide-react';
+import { MobileBeamEditor } from './MobileBeamEditor';
 
 interface QuickTableFormProps {
   input: BeamProblemInput;
@@ -108,7 +109,25 @@ export const QuickTableForm: React.FC<QuickTableFormProps> = ({
   const pointMoments = input.loads.filter((l): l is PointMomentLoad => l.kind === 'point_moment');
 
   return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+    <>
+    {/* Мобильный режим (< 768px): карточки-аккордеоны вместо широких таблиц */}
+    <div className="md:hidden">
+      <MobileBeamEditor
+        input={input}
+        onChange={onChange}
+        updateSupport={updateSupport}
+        addSupport={addSupport}
+        removeSupport={removeSupport}
+        updateLoad={updateLoad}
+        removeLoad={removeLoad}
+        addPointForce={addPointForce}
+        addDistributedLoad={addDistributedLoad}
+        addPointMoment={addPointMoment}
+      />
+    </div>
+
+    {/* Десктопный режим (md и шире): табличный ввод без изменений */}
+    <div className="hidden grid-cols-1 gap-4 md:grid lg:grid-cols-12">
       {/* 1. Общие параметры и опоры */}
       <div className="rounded-lg border border-gray-300 bg-white p-4 shadow-xs lg:col-span-5">
         <div className="mb-3 flex items-center justify-between border-b border-gray-200 pb-2">
@@ -520,5 +539,6 @@ export const QuickTableForm: React.FC<QuickTableFormProps> = ({
         </div>
       </div>
     </div>
+    </>
   );
 };
