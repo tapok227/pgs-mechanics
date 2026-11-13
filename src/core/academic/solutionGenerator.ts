@@ -9,6 +9,8 @@ import {
   SteppedRodSolverOutput,
   TorsionSolverOutput,
 } from '../solver/rodAndShaftSolver';
+import { FrameProblemInput, FrameSolverOutput } from '../../types/frame';
+import { GOST_8239_IBEAMS } from '../solver/beamSolver';
 
 // ============================================================================
 // СТРУКТУРА АКАДЕМИЧЕСКОГО ДОКУМЕНТА (РАСЧЕТНО-ПОЯСНИТЕЛЬНОЙ ЗАПИСКИ)
@@ -603,4 +605,286 @@ export function generateTorsionAcademicSteps(
   });
 
   return steps;
+}
+
+// ============================================================================
+// 3. ГЕНЕРАТОР АКАДЕМИЧЕСКОГО РЕШЕНИЯ ДЛЯ ПЛОСКОЙ РАМЫ 2D (МКЭ + РГР)
+// ============================================================================
+
+export interface FrameAcademicElementRow {
+  elementId: string;
+  label: string;
+  length_m: number;
+  angleDeg: number;
+  N_start: number;
+  N_end: number;
+  Q_start: number;
+  Q_end: number;
+  M_start: number;
+  M_end: number;
+  M_max_abs: number;
+  steps: AcademicFormulaStep[];
+}
+
+export interface FrameAcademicSolutionDocument {
+  title: string;
+  subtitle: string;
+  fbdSection: {
+    description: string;
+    steps: AcademicFormulaStep[];
+  };
+  staticsSection: {
+    steps: AcademicFormulaStep[];
+    verificationStep: AcademicFormulaStep;
+    isVerified: boolean;
+  };
+  elementsSection: {
+    introText: string;
+    rows: FrameAcademicElementRow[];
+  };
+  strengthSection: {
+    steps: AcademicFormulaStep[];
+    selectedProfileNumber: string;
+    sigmaMax_MPa: number;
+    allowableStress_MPa: number;
+    isStrengthOk: boolean;
+    conclusionText: string;
+  };
+}
+
+export function generateFrameAcademicSolution(
+  input: FrameProblemInput,
+  output: FrameSolverOutput
+): FrameAcademicSolutionDocument {
+  const fbdSteps: AcademicFormulaStep[] = [];
+
+  // 1. Геометрия стержней рамы (длины и углы наклона)
+  input.elements.forEach((el, idx) => {
+    const n1 = input.nodes.find((n) => n.id === el.nodeStartId);
+    const n2 = input.nodes.find((n) => n.id === el.nodeEndId);
+    if (!n1 || !n2) return;
+    const dx = n2.x - n1.x;
+    const dy = n2.y - n1.y;
+    const L = Math.hypot(dx, dy);
+    if (L < 1e-6) return;
+    const cosA = dx / L;
+    const sinA = dy / L;
+    const deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+    fbdSteps.push({
+      label: `Стержень №${idx + 1} «${el.label}» (узлы ${n1.label} → ${n2.label}):`,
+      katex: `L_${idx + 1} = \\sqrt{(${fmtNum(n2.x)} - ${fmtNum(n1.x)})^2 + (${fmtNum(n2.y)} - ${fmtNum(n1.y)})^2} = \\mathbf{${fmtNum(L)}\\text{ м}}, \\quad \\alpha_${idx + 1} = ${fmtNum(deg, 1)}^\\circ, \\; \\cos\\alpha = ${fmtNum(cosA, 3)}, \\; \\sin\\alpha = ${fmtNum(sinA, 3)}.`,
+    });
+  });
+
+  // 2. Приведение внешних нагрузок к осям и равнодействующим
+  input.loads.forEach((load) => {
+    if (load.kind === 'nodal_force') {
+      const node = input.nodes.find((n) => n.id === load.nodeId);
+      const rad = (load.angleDeg * Math.PI) / 180;
+      const Fx = load.magnitude_kN * Math.cos(rad);
+      const Fy = load.magnitude_kN * Math.sin(rad);
+      fbdSteps.push({
+        label: `Узловая сила ${load.label} = ${fmtNum(load.magnitude_kN)} кН в узле ${node?.label ?? '?'} (угол α = ${fmtNum(load.angleDeg, 1)}°):`,
+        katex: `${load.label}_x = ${fmtNum(load.magnitude_kN)} \\cdot \\cos(${fmtNum(load.angleDeg, 1)}^\\circ) = ${fmtNum(Fx)}\\text{ кН}, \\quad ${load.label}_y = ${fmtNum(load.magnitude_kN)} \\cdot \\sin(${fmtNum(load.angleDeg, 1)}^\\circ) = ${fmtNum(Fy)}\\text{ кН}.`,
+      });
+    } else if (load.kind === 'member_distributed') {
+      const el = input.elements.find((e) => e.id === load.elementId);
+      const n1 = el ? input.nodes.find((n) => n.id === el.nodeStartId) : undefined;
+      const n2 = el ? input.nodes.find((n) => n.id === el.nodeEndId) : undefined;
+      const L = n1 && n2 ? Math.hypot(n2.x - n1.x, n2.y - n1.y) : 1;
+      const Q_val = 0.5 * (load.qStart_kNm + load.qEnd_kNm) * L;
+      const isUniform = Math.abs(load.qStart_kNm - load.qEnd_kNm) < 1e-4;
+      const isTri = Math.abs(load.qStart_kNm) < 1e-4 || Math.abs(load.qEnd_kNm) < 1e-4;
+      const dirLabel =
+        load.direction === 'global_x'
+          ? 'горизонтально вдоль оси Ox'
+          : load.direction === 'global_y'
+          ? 'вертикально вдоль оси Oy'
+          : 'перпендикулярно оси стержня';
+      const sCentroid = isUniform
+        ? L / 2
+        : Math.abs(load.qStart_kNm + load.qEnd_kNm) > 1e-5
+        ? (L * (load.qStart_kNm + 2 * load.qEnd_kNm)) /
+          (3 * (load.qStart_kNm + load.qEnd_kNm))
+        : L / 2;
+      fbdSteps.push({
+        label: `Распределенная нагрузка ${load.label} на стержне «${el?.label ?? '?'}» (${dirLabel}):`,
+        katex: isUniform
+          ? `Q_{${load.label}} = q \\cdot L = ${fmtNum(load.qStart_kNm)} \\cdot ${fmtNum(L)} = ${fmtNum(Q_val)}\\text{ кН}, \\quad s_C = \\frac{L}{2} = ${fmtNum(sCentroid)}\\text{ м}.`
+          : isTri
+          ? `Q_{${load.label}} = \\frac{1}{2} q_{\\max} \\cdot L = \\frac{1}{2} \\cdot ${fmtNum(Math.max(Math.abs(load.qStart_kNm), Math.abs(load.qEnd_kNm)))} \\cdot ${fmtNum(L)} = ${fmtNum(Math.abs(Q_val))}\\text{ кН}, \\quad s_C = ${fmtNum(sCentroid)}\\text{ м от начала стержня}.`
+          : `Q_{${load.label}} = \\frac{q_1 + q_2}{2} \\cdot L = \\frac{${fmtNum(load.qStart_kNm)} + ${fmtNum(load.qEnd_kNm)}}{2} \\cdot ${fmtNum(L)} = ${fmtNum(Q_val)}\\text{ кН}, \\quad s_C = ${fmtNum(sCentroid)}\\text{ м}.`,
+      });
+    } else if (load.kind === 'member_point_force') {
+      const el = input.elements.find((e) => e.id === load.elementId);
+      const n1 = el ? input.nodes.find((n) => n.id === el.nodeStartId) : undefined;
+      const n2 = el ? input.nodes.find((n) => n.id === el.nodeEndId) : undefined;
+      const L = n1 && n2 ? Math.hypot(n2.x - n1.x, n2.y - n1.y) : 1;
+      fbdSteps.push({
+        label: `Поперечная сосредоточенная сила ${load.label} на стержне «${el?.label ?? '?'}»:`,
+        katex: `${load.label} = ${fmtNum(load.magnitude_kN)}\\text{ кН}, \\quad s = ${fmtNum(load.tPosition, 2)} \\cdot L = ${fmtNum(load.tPosition * L)}\\text{ м от начала стержня}.`,
+      });
+    } else if (load.kind === 'member_moment') {
+      const el = input.elements.find((e) => e.id === load.elementId);
+      const n1 = el ? input.nodes.find((n) => n.id === el.nodeStartId) : undefined;
+      const n2 = el ? input.nodes.find((n) => n.id === el.nodeEndId) : undefined;
+      const L = n1 && n2 ? Math.hypot(n2.x - n1.x, n2.y - n1.y) : 1;
+      fbdSteps.push({
+        label: `Сосредоточенный момент ${load.label} на стержне «${el?.label ?? '?'}»:`,
+        katex: `${load.label} = ${fmtNum(load.moment_kNm)}\\text{ кН}\\cdot\\text{м} \\; (${
+          load.moment_kNm >= 0 ? '\\text{против ЧС, } +' : '\\text{по ЧС, } -'
+        }), \\quad s = ${fmtNum(load.tPosition * L)}\\text{ м}.`,
+      });
+    }
+  });
+
+  // 3. Опорные реакции и уравнения равновесия (с учетом врезных шарниров)
+  const staticsSteps: AcademicFormulaStep[] = [];
+  const hingeNodes = input.nodes.filter((n) => n.isHinge);
+  const hingedEls = input.elements.filter((e) => e.releaseStart || e.releaseEnd);
+
+  if (hingeNodes.length > 0 || hingedEls.length > 0) {
+    const hingeLabels = hingeNodes.map((h) => h.label).join(', ');
+    staticsSteps.push({
+      label: 'Учет врезных шарниров (составная система):',
+      katex:
+        hingeLabels.length > 0
+          ? `\\sum M_{${hingeLabels}}^{\\text{отсеч}} = 0 \\implies M_{\\text{в шарнире}} = 0.`
+          : `\\sum M_{\\text{шарн}}^{\\text{отсеч}} = 0 \\implies M = 0\\text{ в точках врезных шарниров стержней}.`,
+      note: 'Дополнительное условие шарнира позволяет замкнуть систему уравнений статики и определить все горизонтальные и вертикальные реакции опор.',
+    });
+  }
+
+  output.reactions.forEach((r) => {
+    const modR = Math.hypot(r.Rx_kN, r.Ry_kN);
+    staticsSteps.push({
+      label: `Опорные реакции в узле ${r.nodeLabel} (${fmtNum(r.x)}; ${fmtNum(r.y)} м):`,
+      katex: `R_{${r.nodeLabel}x} = \\mathbf{${fmtNum(r.Rx_kN)}\\text{ кН}}, \\quad R_{${r.nodeLabel}y} = \\mathbf{${fmtNum(r.Ry_kN)}\\text{ кН}}${
+        Math.abs(r.M_kNm) > 1e-3 ? `, \\quad M_{${r.nodeLabel}} = \\mathbf{${fmtNum(r.M_kNm)}\\text{ кН}\\cdot\\text{м}}` : ''
+      }, \\quad |R_{${r.nodeLabel}}| = ${fmtNum(modR)}\\text{ кН}.`,
+    });
+  });
+
+  const eq = output.equilibriumCheck;
+  const maxResidual = Math.max(
+    Math.abs(eq.sumFx_residual),
+    Math.abs(eq.sumFy_residual),
+    Math.abs(eq.sumM0_residual)
+  );
+  const verificationStep: AcademicFormulaStep = {
+    label: 'Глобальная проверка статического равновесия всей рамы:',
+    katex: `\\begin{aligned}
+      \\sum F_x &= ${fmtNum(eq.sumFx_residual, 4)} \\approx 0; \\\\
+      \\sum F_y &= ${fmtNum(eq.sumFy_residual, 4)} \\approx 0; \\\\
+      \\sum M_0 &= ${fmtNum(eq.sumM0_residual, 4)} \\approx 0.
+    \\end{aligned}`,
+    note:
+      maxResidual < 1e-2
+        ? 'Уравнения равновесия выполняются с высокой точностью (невязка < 0.01).'
+        : 'Обнаружена невязка равновесия — проверьте исходную схему.',
+  };
+
+  // 4. Внутренние усилия N, Q, M по каждому стержню
+  const rows: FrameAcademicElementRow[] = output.elementResults.map((er) => ({
+    elementId: er.elementId,
+    label: er.label,
+    length_m: er.length_m,
+    angleDeg: er.angleDeg,
+    N_start: er.N_start,
+    N_end: er.N_end,
+    Q_start: er.Q_start,
+    Q_end: er.Q_end,
+    M_start: er.M_start,
+    M_end: er.M_end,
+    M_max_abs: er.M_max_abs,
+    steps: [
+      {
+        label: `Граничные усилия на концах стержня (s = 0 и s = ${fmtNum(er.length_m)} м):`,
+        katex: `\\begin{aligned}
+          N(0) &= ${fmtNum(er.N_start)}\\text{ кН}, & N(${fmtNum(er.length_m)}) &= ${fmtNum(er.N_end)}\\text{ кН}; \\\\
+          Q(0) &= ${fmtNum(er.Q_start)}\\text{ кН}, & Q(${fmtNum(er.length_m)}) &= ${fmtNum(er.Q_end)}\\text{ кН}; \\\\
+          M(0) &= ${fmtNum(er.M_start)}\\text{ кН}\\cdot\\text{м}, & M(${fmtNum(er.length_m)}) &= ${fmtNum(er.M_end)}\\text{ кН}\\cdot\\text{м}, \\quad |M_{\\max}| = \\mathbf{${fmtNum(er.M_max_abs)}\\text{ кН}\\cdot\\text{м}}.
+        \\end{aligned}`,
+        note:
+          Math.abs(er.M_max_abs) > 1e-3
+            ? `Максимальный момент на стержне: |M_max| = ${fmtNum(er.M_max_abs)} кН·м; ${
+                Math.abs(er.N_start) > 1e-2
+                  ? er.N_start > 0
+                    ? 'стержень растянут.'
+                    : 'стержень сжат.'
+                  : 'продольная сила близка к нулю.'
+              }`
+            : 'Стержень работает без изгиба.',
+      },
+    ],
+  }));
+
+  // 5. Подбор сечения по ГОСТ 8239-89 и проверка прочности (с учетом N и M)
+  const M_max = output.maxAbs.M_kNm;
+  const N_max = output.maxAbs.N_kN;
+  const sigmaAllow = Math.max(input.allowableStress_MPa || 160, 1);
+  const Wz_req = M_max > 1e-6 ? (M_max * 1000) / sigmaAllow : 0;
+
+  let chosen =
+    GOST_8239_IBEAMS.find((p) => {
+      const sigma =
+        (M_max * 1000) / p.Wz_cm3 + (N_max * 10) / p.A_cm2;
+      return sigma <= sigmaAllow;
+    }) ?? GOST_8239_IBEAMS[GOST_8239_IBEAMS.length - 1];
+
+  if (!chosen) chosen = GOST_8239_IBEAMS[0];
+  const sigmaBend = (M_max * 1000) / chosen.Wz_cm3;
+  const sigmaAx = (N_max * 10) / chosen.A_cm2;
+  const sigmaMax = sigmaBend + sigmaAx;
+  const isStrengthOk = sigmaMax <= sigmaAllow + 1e-3;
+
+  const strengthSteps: AcademicFormulaStep[] = [
+    {
+      label: 'Максимальные расчетные усилия в элементах рамы:',
+      katex: `|M_{\\max}| = \\mathbf{${fmtNum(M_max)}\\text{ кН}\\cdot\\text{м}}, \\quad |Q_{\\max}| = \\mathbf{${fmtNum(output.maxAbs.Q_kN)}\\text{ кН}}, \\quad |N_{\\max}| = \\mathbf{${fmtNum(N_max)}\\text{ кН}}.`,
+    },
+    {
+      label: `Требуемый момент сопротивления изгиба при [σ] = ${fmtNum(sigmaAllow, 0)} МПа:`,
+      katex: `W_{z,\\text{треб}} = \\frac{|M_{\\max}| \\cdot 10^3}{[\\sigma]} = \\frac{${fmtNum(M_max)} \\cdot 10^3}{${fmtNum(sigmaAllow, 0)}} = \\mathbf{${fmtNum(Wz_req, 2)}\\text{ см}^3}.`,
+    },
+    {
+      label: `Принимаем прокатный двутавр №${chosen.number} (ГОСТ 8239-89: W_z = ${chosen.Wz_cm3} см³, A = ${chosen.A_cm2} см²) и выполняем проверку прочности при сжатии/растяжении с изгибом:`,
+      katex: `\\sigma_{\\max} = \\frac{|M_{\\max}| \\cdot 10^3}{W_z} + \\frac{|N_{\\max}| \\cdot 10}{A} = ${fmtNum(sigmaBend, 1)} + ${fmtNum(sigmaAx, 1)} = \\mathbf{${fmtNum(sigmaMax, 1)}\\text{ МПа}} ${
+        isStrengthOk ? '\\le' : '>'
+      } [\\sigma] = ${fmtNum(sigmaAllow, 0)}\\text{ МПа}.`,
+      note: isStrengthOk
+        ? `Запас прочности обеспечен (использование ${fmtNum((sigmaMax / sigmaAllow) * 100, 1)}%).`
+        : 'Внимание: даже максимальный стандартный двутавр перегружен — уменьшите нагрузки или пролеты.',
+    },
+  ];
+
+  return {
+    title: input.title || 'Статический расчет плоской рамы (МКЭ)',
+    subtitle: 'Определение реакций опор, внутренних усилий N, Q, M в стержнях и подбор двутавра по ГОСТ 8239-89',
+    fbdSection: {
+      description:
+        'Исходная 2D-рама разбивается на узлы и прямолинейные стержни. Вычисляются геометрические параметры наклонных и вертикальных элементов, а внешние нагрузки приводятся к координатным осям.',
+      steps: fbdSteps,
+    },
+    staticsSection: {
+      steps: staticsSteps,
+      verificationStep,
+      isVerified: maxResidual < 1e-2,
+    },
+    elementsSection: {
+      introText:
+        'Для каждого стержня рамы методом конечных элементов определены продольные силы N, поперечные силы Q и изгибающие моменты M (эпюра M строится со стороны растянутых волокон).',
+      rows,
+    },
+    strengthSection: {
+      steps: strengthSteps,
+      selectedProfileNumber: chosen.number,
+      sigmaMax_MPa: Number(sigmaMax.toFixed(1)),
+      allowableStress_MPa: sigmaAllow,
+      isStrengthOk,
+      conclusionText: isStrengthOk
+        ? `Прочность рамы обеспечена при применении прокатного двутавра №${chosen.number} (ГОСТ 8239-89), максимальное напряжение σ_max = ${fmtNum(sigmaMax, 1)} МПа ≤ [${fmtNum(sigmaAllow, 0)}] МПа.`
+        : `Требуется усиленное сварное или составное сечение (σ_max = ${fmtNum(sigmaMax, 1)} МПа > [${fmtNum(sigmaAllow, 0)}] МПа).`,
+    },
+  };
 }

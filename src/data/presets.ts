@@ -221,6 +221,13 @@ export const DEFAULT_COMPOSITE_SECTION_PRESET: CompositePartInput[] = [
     Izy_own_cm4: 49.0,
   },
 ];
+export interface FramePresetItem {
+  id: string;
+  title: string;
+  sourceNote: string;
+  data: FrameProblemInput;
+}
+
 export const DEFAULT_FRAME_PRESET: FrameProblemInput = {
   title: 'Составная рама с врезным шарниром C и наклонной ногой CB (из задания)',
   allowableStress_MPa: 160,
@@ -307,3 +314,212 @@ export const DEFAULT_FRAME_PRESET: FrameProblemInput = {
     },
   ],
 };
+
+export const FRAME_PRESETS: FramePresetItem[] = [
+  {
+    id: 'frame-hinge-inclined',
+    title: 'Составная рама с врезным шарниром C и наклонной ногой CB (из РГР)',
+    sourceNote: 'Расчетно-графическое задание: консоль DK, стойка AK, врезной шарнир C, наклонный стержень CB',
+    data: DEFAULT_FRAME_PRESET,
+  },
+  {
+    id: 'frame-portal-3hinge',
+    title: 'Трехшарнирная П-образная рама (пролет 6 м, высота 4 м, q = 12 кН/м, P = 30 кН)',
+    sourceNote: 'Классическая трехшарнирная рама с промежуточным шарниром C в середине ригеля',
+    data: {
+      title: 'Трехшарнирная П-образная рама (пролет 6 м, высота 4 м)',
+      allowableStress_MPa: 160,
+      nodes: [
+        { id: 'p3_A', label: 'A', x: 0, y: 0, support: 'pinned' },
+        { id: 'p3_D', label: 'D', x: 0, y: 4, support: 'none' },
+        { id: 'p3_C', label: 'C (шарнир)', x: 3, y: 4, support: 'none', isHinge: true },
+        { id: 'p3_E', label: 'E', x: 6, y: 4, support: 'none' },
+        { id: 'p3_B', label: 'B', x: 6, y: 0, support: 'pinned' },
+      ],
+      elements: [
+        {
+          id: 'p3_AD',
+          label: 'Левая стойка AD (4 м)',
+          nodeStartId: 'p3_A',
+          nodeEndId: 'p3_D',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+        {
+          id: 'p3_DC',
+          label: 'Левый ригель DC (3 м)',
+          nodeStartId: 'p3_D',
+          nodeEndId: 'p3_C',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+          releaseEnd: true,
+        },
+        {
+          id: 'p3_CE',
+          label: 'Правый ригель CE (3 м)',
+          nodeStartId: 'p3_C',
+          nodeEndId: 'p3_E',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+          releaseStart: true,
+        },
+        {
+          id: 'p3_EB',
+          label: 'Правая стойка EB (4 м)',
+          nodeStartId: 'p3_E',
+          nodeEndId: 'p3_B',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+      ],
+      loads: [
+        {
+          id: 'p3_P',
+          kind: 'nodal_force',
+          nodeId: 'p3_D',
+          label: 'P',
+          magnitude_kN: 30,
+          angleDeg: 0,
+        },
+        {
+          id: 'p3_q1',
+          kind: 'member_distributed',
+          elementId: 'p3_DC',
+          label: 'q_1',
+          qStart_kNm: -12,
+          qEnd_kNm: -12,
+          direction: 'global_y',
+        },
+        {
+          id: 'p3_q2',
+          kind: 'member_distributed',
+          elementId: 'p3_CE',
+          label: 'q_2',
+          qStart_kNm: -12,
+          qEnd_kNm: -12,
+          direction: 'global_y',
+        },
+      ],
+    },
+  },
+  {
+    id: 'frame-cantilever-gamma',
+    title: 'Г-образная рама в жесткой заделке (стойка 4 м, ригель 3 м, треугольная q и момент M)',
+    sourceNote: 'Консольная рама с заделкой в узле A, треугольной нагрузкой и моментом',
+    data: {
+      title: 'Г-образная рама в жесткой заделке A',
+      allowableStress_MPa: 160,
+      nodes: [
+        { id: 'cg_A', label: 'A', x: 0, y: 0, support: 'fixed' },
+        { id: 'cg_K', label: 'K', x: 0, y: 4, support: 'none' },
+        { id: 'cg_B', label: 'B', x: 3, y: 4, support: 'none' },
+      ],
+      elements: [
+        {
+          id: 'cg_AK',
+          label: 'Стойка AK (4 м)',
+          nodeStartId: 'cg_A',
+          nodeEndId: 'cg_K',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+        {
+          id: 'cg_KB',
+          label: 'Ригель KB (3 м)',
+          nodeStartId: 'cg_K',
+          nodeEndId: 'cg_B',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+      ],
+      loads: [
+        {
+          id: 'cg_q',
+          kind: 'member_distributed',
+          elementId: 'cg_KB',
+          label: 'q',
+          qStart_kNm: 0,
+          qEnd_kNm: -20,
+          direction: 'global_y',
+        },
+        {
+          id: 'cg_M',
+          kind: 'member_moment',
+          elementId: 'cg_AK',
+          label: 'M',
+          tPosition: 0.5,
+          moment_kNm: 24,
+        },
+      ],
+    },
+  },
+  {
+    id: 'frame-overhang-beam-column',
+    title: 'Рама со стойкой, ригелем и консолью (опоры A и B, наклонная сила F)',
+    sourceNote: 'Г-образная рама на опорах A (шарнир) и B (каток) с левой консолью KC',
+    data: {
+      title: 'Рама со стойкой, ригелем и консолью',
+      allowableStress_MPa: 160,
+      nodes: [
+        { id: 'ob_A', label: 'A', x: 2, y: 0, support: 'pinned' },
+        { id: 'ob_K', label: 'K', x: 2, y: 4, support: 'none' },
+        { id: 'ob_C', label: 'C', x: 0, y: 4, support: 'none' },
+        { id: 'ob_B', label: 'B', x: 6, y: 4, support: 'roller_x' },
+      ],
+      elements: [
+        {
+          id: 'ob_AK',
+          label: 'Стойка AK (4 м)',
+          nodeStartId: 'ob_A',
+          nodeEndId: 'ob_K',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+        {
+          id: 'ob_CK',
+          label: 'Консоль CK (2 м)',
+          nodeStartId: 'ob_C',
+          nodeEndId: 'ob_K',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+        {
+          id: 'ob_KB',
+          label: 'Ригель KB (4 м)',
+          nodeStartId: 'ob_K',
+          nodeEndId: 'ob_B',
+          E_MPa: 2e5,
+          A_cm2: 40,
+          Iz_cm4: 3500,
+        },
+      ],
+      loads: [
+        {
+          id: 'ob_F',
+          kind: 'nodal_force',
+          nodeId: 'ob_C',
+          label: 'F',
+          magnitude_kN: 25,
+          angleDeg: -60,
+        },
+        {
+          id: 'ob_q',
+          kind: 'member_distributed',
+          elementId: 'ob_KB',
+          label: 'q',
+          qStart_kNm: -15,
+          qEnd_kNm: -15,
+          direction: 'global_y',
+        },
+      ],
+    },
+  },
+];
